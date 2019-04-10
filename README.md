@@ -1,4 +1,4 @@
-# Hierarchihcal Reinforcement Learning
+# Hierarchical Reinforcement Learning
 Models:
 1. Tabular Hierarchical Q-Learning
 2. h-DQN for discrete action space
