@@ -31,23 +31,28 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
             state = running_state(state)
         reward_episode = 0
 
+        # Manager 
         state_mgr = tensor(state).unsqueeze(0)
         with torch.no_grad():
             direction = policy_mgr.select_action(state_mgr)[0]
-
         direction = int(direction.detach().numpy())
         subgoal = get_target(curr_pos,direction)
+        
+        
+        
+        # Worker
         state_wrk = tensor(np.concatenate((state,subgoal)))
          
 
 
         for t in range(10000):
+            # Sample Action
             with torch.no_grad():
                 if mean_action:
                     action = policy(state_var)[0][0].numpy()
                 else:
                     action = policy_wrk.select_action(state_wrk.unsqueeze(0))[0].numpy()
-
+            # Take Action
             next_state, reward, done, info = env.step(action)
 
 
@@ -68,13 +73,12 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
 
             mask_mgr = 0 if done else 1
 
-            
+            # Intrinsic Reward and Subgoal Reached Definition
             reward_wrk = - np.linalg.norm(subgoal - info['fingertip']) + info['reward_ctrl']
-            
             subgoal_reached = (-reward_wrk < 0.05)
             mask_wrk = 0 if (done or subgoal_reached) else 1
           
-
+            # Collect Rollout
             memory_wrk.push(state_wrk.detach().numpy(), action, mask_wrk, next_state_wrk, reward_wrk)
             avg_wrk_reward += reward_wrk
 
@@ -82,12 +86,11 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
             if render:
                 env.render()
             if (done or subgoal_reached):
-            #if (done):
                 break
 
             state_wrk = tensor(next_state_wrk)
 
-        
+        # Manager Rollout
         next_state_mgr = next_state
         reward_mgr = reward_episode/50.0 
         memory_mgr.push(state, direction, mask_mgr, next_state_mgr, reward_mgr)
