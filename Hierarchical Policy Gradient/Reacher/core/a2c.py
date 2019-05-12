@@ -12,7 +12,7 @@ def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, a
     optimizer_value.zero_grad()
     value_loss.backward()
     optimizer_value.step()
-    #print ("value:", torch.sum(torch.isnan(value_net(states))*1.0))
+    
 
     """update policy"""
     #print (states.shape)
@@ -23,6 +23,5 @@ def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, a
     torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 40)
     optimizer_policy.step()
 
-    #print ("policy:", torch.sum(torch.isnan(policy_net.get_log_prob(states, actions))*1.0))
 
     return policy_loss, value_loss
