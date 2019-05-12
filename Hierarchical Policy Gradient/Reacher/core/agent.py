@@ -27,8 +27,6 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
     done_count = 0
     state, curr_pos = env.reset()
     while num_steps < min_batch_size:
-        #state_wrk = tensor(state['observation'])
-        #state = np.concatenate((state['observation'],state['desired_goal']))
         if running_state is not None:
             state = running_state(state)
         reward_episode = 0
@@ -49,16 +47,14 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
                     action = policy(state_var)[0][0].numpy()
                 else:
                     action = policy_wrk.select_action(state_wrk.unsqueeze(0))[0].numpy()
-            #action = int(action) if policy.is_disc_action else action.astype(np.float64)
+
             next_state, reward, done, info = env.step(action)
-            #if(done): done_count += 1
-            #done = int(1 - done_count%2)
 
+
+            ## Sparse Rewards
             dist = np.linalg.norm(info['fingertip']-info['target'])
-
             reward = -1 if (dist > 0.05) else 0
-            #next_state_wrk = np.concatenate((next_state['observation'],next_state['desired_goal'],subgoal))
-            #next_state_wrk = next_state['observation']
+
             next_state_wrk = np.concatenate((next_state,subgoal))
             reward_episode += reward
             if running_state is not None:
@@ -72,12 +68,12 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
 
             mask_mgr = 0 if done else 1
 
-            #reward_wrk = - np.linalg.norm(subgoal - next_state['achieved_goal'])
+            
             reward_wrk = - np.linalg.norm(subgoal - info['fingertip']) + info['reward_ctrl']
-            #reward_wrk = reward
+            
             subgoal_reached = (-reward_wrk < 0.05)
             mask_wrk = 0 if (done or subgoal_reached) else 1
-            #mask_wrk = 0 if (done) else 1
+          
 
             memory_wrk.push(state_wrk.detach().numpy(), action, mask_wrk, next_state_wrk, reward_wrk)
             avg_wrk_reward += reward_wrk
@@ -91,10 +87,8 @@ def collect_samples(pid, queue, env, policy_mgr, policy_wrk, custom_reward,
 
             state_wrk = tensor(next_state_wrk)
 
-        #next_state_mgr = np.concatenate((next_state['observation'],next_state['desired_goal']))
+        
         next_state_mgr = next_state
-        #reward_mgr = reward_episode - 10*np.linalg.norm(next_state['achieved_goal'] - next_state['desired_goal'])
-        #reward_mgr = reward_episode/50.0 -  np.linalg.norm(subgoal - info['target'])
         reward_mgr = reward_episode/50.0 
         memory_mgr.push(state, direction, mask_mgr, next_state_mgr, reward_mgr)
 
@@ -184,115 +178,18 @@ class Agent:
         memory_mgr, memory_wrk, log = collect_samples(0, None, self.env, self.policy_mgr, self.policy_wrk, self.custom_reward, self.mean_action,
                                       self.render, self.running_state, thread_batch_size)
 
-        #worker_logs = [None] * len(workers)
-        #worker_memories = [None] * len(workers)
-        #for _ in workers:
-        #    pid, worker_memory, worker_log = queue.get()
-        #    worker_memories[pid - 1] = worker_memory
-        #    worker_logs[pid - 1] = worker_log
-        #for worker_memory in worker_memories:
-        #    memory.append(worker_memory)
         batch_mgr = memory_mgr.sample()
         batch_wrk = memory_wrk.sample()
-        #if self.num_threads > 1:
-        #    log_list = [log] + worker_logs
-        #    log = merge_log(log_list)
-        #to_device(self.device, self.policy)
+
         t_end = time.time()
         log['sample_time'] = t_end - t_start
-        #log['action_mean'] = np.mean(np.vstack(batch.action), axis=0)
-        #log['action_min'] = np.min(np.vstack(batch.action), axis=0)
-        #log['action_max'] = np.max(np.vstack(batch.action), axis=0)
+
         return batch_mgr, batch_wrk, log
 
 
 
 def get_target(x, dir, off = 0.1):
-    # res = np.zeros(3)
-    # if dir == 0:
-    #     res[0] = off
-    # elif dir == 1:
-    #     res[0] = -off
-    # elif dir == 2:
-    #     res[1] = off
-    # elif dir == 3:
-    #     res[1] = -off
-    # elif dir == 4:
-    #     res[2] = off
-    # elif dir == 5:
-    #     res[2] = -off
-    # elif dir == 6:
-    #     res[0] = off
-    #     res[1] = off
-    #     res[2] = off
-    # elif dir == 7:
-    #     res[0] = -off
-    #     res[1] = off
-    #     res[2] = off
-    # elif dir == 8:
-    #     res[0] = off
-    #     res[1] = -off
-    #     res[2] = off
-    # elif dir == 9:
-    #     res[0] = off
-    #     res[1] = off
-    #     res[2] = -off
-    # elif dir == 10:
-    #     res[0] = -off
-    #     res[1] = -off
-    #     res[2] = off
-    # elif dir == 11:
-    #     res[0] = -off
-    #     res[1] = off
-    #     res[2] = -off
-    # elif dir == 12:
-    #     res[0] = off
-    #     res[1] = -off
-    #     res[2] = -off
-    # elif dir == 13:
-    #     res[0] = -off
-    #     res[1] = -off
-    #     res[2] = -off
-
-
-    # elif dir == 6:
-    #     res[0] = off
-    #     res[1] = off
-    # elif dir == 7:
-    #     res[0] = off
-    #     res[1] = -off
-    # elif dir == 8:
-    #     res[0] = -off
-    #     res[1] = off
-    # elif dir == 9:
-    #     res[0] = -off
-    #     res[1] = -off
-    # elif dir == 10:
-    #     res[0] = off
-    #     res[2] = off
-    # elif dir == 11:
-    #     res[0] = off
-    #     res[2] = -off
-    # elif dir == 12:
-    #     res[0] = -off
-    #     res[2] = off
-    # elif dir == 13:
-    #     res[0] = -off
-    #     res[2] = -off
-    # elif dir == 14:
-    #     res[1] = off
-    #     res[2] = off
-    # elif dir == 15:
-    #     res[1] = off
-    #     res[2] = -off
-    # elif dir == 16:
-    #     res[1] = -off
-    #     res[2] = off
-    # elif dir == 17:
-    #     res[1] = -off
-    #     res[2] = -off
-    
-    
+  
     res = np.zeros(3)
     if dir == 0:
         res[0] = off
@@ -302,17 +199,5 @@ def get_target(x, dir, off = 0.1):
         res[1] = off
     elif dir == 3:
         res[1] = -off
-    #elif dir == 4:
-    #    res[0] = off
-    #    res[1] = off
-    #elif dir == 5:
-    #    res[0] = off
-    #    res[1] = -off
-    #elif dir == 6:
-    #    res[0] = -off
-    #    res[1] = off
-    #elif dir == 7:
-    #    res[0] = -off
-    #    res[1] = -off
-    
+
     return x + res
